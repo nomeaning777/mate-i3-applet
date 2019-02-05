@@ -9,6 +9,7 @@ from mate_version import import_gtk
 import_gtk()
 
 from gi.repository import Gtk
+from gi.repository import Gdk
 from gi.repository import GLib
 from gi.repository import MatePanelApplet
 
@@ -44,7 +45,9 @@ class i3bar(object):
     def __init__(self, applet):
         logging.debug("initializing mate-i3-applet")
         self.applet = applet
+        self.plug_name = None
         self.applet.connect("destroy", self.destroy)
+        self.applet.connect("realize", self.on_realize)
         self.i3conn = I3Conn()
 
         self.colors = self.init_colors()
@@ -125,6 +128,9 @@ class i3bar(object):
     def set_workspace_buttons(self, workspaces):
         logging.debug('set_workspace_buttons')
         workspaces = sorted(workspaces, key = lambda i: i['num'])
+        self.update_plug_name()
+        if self.plug_name is not None:
+            workspaces = filter(lambda workspace: workspace['output'] == self.plug_name, workspaces)
 
         for child in self.box.get_children():
             self.box.remove(child)
@@ -165,6 +171,16 @@ class i3bar(object):
     def show(self):
         self.applet.show_all()
 
+    def on_realize(self, event):
+        self.set_initial_buttons()
+
+    def update_plug_name(self):
+        if self.applet.get_window() is None:
+            return
+        screen = self.applet.get_screen()
+        self.plug_name = screen.get_monitor_plug_name(screen.get_monitor_at_window(self.applet.get_window()))
+
+
 def applet_factory(applet, iid, data):
     logging.debug('iid: {}'.format(iid))
     if iid != "I3Applet":
@@ -178,4 +194,3 @@ def applet_factory(applet, iid, data):
 MatePanelApplet.Applet.factory_main("I3AppletFactory", True,
                                     MatePanelApplet.Applet.__gtype__,
                                     applet_factory, None)
-
